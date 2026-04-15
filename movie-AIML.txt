@@ -1,0 +1,69 @@
+import pandas as pd
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import CountVectorizer
+
+movies = pd.DataFrame({
+    'movieId': [1, 2, 3, 4, 5],
+    'title': [
+        'Toy Story (1995)',
+        'Jumanji (1995)',
+        'Grumpier Old Men (1995)',
+        'Waiting to Exhale (1995)',
+        'Father of the Bride Part II (1995)'
+    ],
+    'genres': [
+        'Animation|Children|Comedy',
+        'Adventure|Children|Fantasy',
+        'Comedy|Romance',
+        'Drama',
+        'Comedy'
+    ]
+})
+
+ratings = pd.DataFrame({
+    'userId': [1,1,1,2,2,2,3,3,3],
+    'movieId': [1,2,3,1,2,4,2,3,5],
+    'rating': [4,5,3,5,3,4,4,2,5]
+})
+
+vectorizer = CountVectorizer(tokenizer=lambda x: x.split('|'))
+genre_matrix = vectorizer.fit_transform(movies['genres'])
+cosine_sim = cosine_similarity(genre_matrix)
+
+def recommend_content(movie_title):
+    idx = movies[movies['title'] == movie_title].index[0]
+    scores = list(enumerate(cosine_sim[idx]))
+    scores = sorted(scores, key=lambda x: x[1], reverse=True)
+    print("\nRecommended movies:\n")
+    for i in scores[1:6]:
+        print(movies.iloc[i[0]]['title'])
+
+user_movie_matrix = ratings.pivot(index='userId', columns='movieId', values='rating').fillna(0)
+user_similarity = cosine_similarity(user_movie_matrix)
+
+def recommend_collaborative(user_id):
+    sim_scores = list(enumerate(user_similarity[user_id - 1]))
+    sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
+    similar_users = [i[0] + 1 for i in sim_scores[1:3]]
+    print("\nRecommended movies:\n")
+    seen = set(ratings[ratings['userId'] == user_id]['movieId'])
+    for user in similar_users:
+        user_movies = ratings[ratings['userId'] == user]
+        for _, row in user_movies.iterrows():
+            if row['movieId'] not in seen and row['rating'] >= 4:
+                title = movies[movies['movieId'] == row['movieId']]['title'].values[0]
+                print(title)
+
+while True:
+    print("\n1. Content-Based\n2. Collaborative\n3. Exit")
+    choice = int(input("Enter choice: "))
+    if choice == 1:
+        name = input("Enter movie title: ")
+        recommend_content(name)
+    elif choice == 2:
+        uid = int(input("Enter user ID: "))
+        recommend_collaborative(uid)
+    elif choice == 3:
+        break
+    else:
+        print("Invalid choice")
